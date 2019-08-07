@@ -24,8 +24,105 @@ import subprocess
 import logging
 import logging.handlers
 import Queue
+#/*MOD
+import re
+import pyttsx
+#MOD*/
 from constants import CERTABO_SAVE_PATH, CERTABO_DATA_PATH, MAX_DEPTH_DEFAULT
 
+#/*MOD
+###init voice engine
+vEngine = pyttsx.init()
+# PC ONLY...
+en_voice_id="HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices\Tokens\TTS_MS_EN-US_ZIRA_11.0"
+vEngine.setProperty('rate',150)
+vEngine.setProperty('volume',0.9)
+vEngine.setProperty('voice',en_voice_id)
+
+def Talk(sentence):
+    vEngine.say(sentence)
+    vEngine.runAndWait()
+
+def SanToSpeech(mov):
+    piece = {
+                'P' : 'Pawn ',
+                'N' : 'Knight ',
+                'B' : 'Bishop ',
+                'R' : 'Rook ',
+                'Q' : 'Queen ',
+                'K' : 'King '  }
+
+    piece_regex = re.compile("[NBRQK]")
+    check_regex = re.compile("[+]")
+    mate_regex = re.compile("[#]")
+    castles_regex = re.compile("[O]")
+    notPawn = piece_regex.search(mov)
+    take_regex = re.compile("x")
+    pos_regex = re.compile("[a-h][1-8]")
+    file_regex = re.compile("[a-h]")
+    rank_regex = re.compile("[1-8]")
+
+    speech = ""
+
+    if len(castles_regex.findall(mov))==3:   
+        speech = "Castles queenside"
+        return speech
+    elif len(castles_regex.findall(mov))==2:
+        speech = "Castles kingside"
+        return speech
+    
+
+    location = pos_regex.findall(mov)
+    file = file_regex.findall(mov)
+    rank = rank_regex.findall(mov)
+    take = take_regex.search(mov)
+    check = check_regex.search(mov)
+    mate = mate_regex.search(mov)
+
+
+    ##Ambiguous move logic
+    ambig =False
+    if len(pos_regex.findall(mov))==2:
+        prev = location[0]
+        next = location[1]
+        ambig =True
+    elif len(file_regex.findall(mov))==2:
+        prev = file[0]
+        next = location[0]
+        ambig = True
+    elif len(rank_regex.findall(mov))==2:
+        prev = rank[0]
+        next = location[0]
+        ambig = True
+    else:
+        next = location[0]
+
+
+    if notPawn:
+        speech = speech + piece[notPawn.group(0)]
+    else:
+        speech =  speech + "Pawn "
+
+    if ambig:
+        speech = speech + prev+ " "
+
+    if take:
+        speech = speech + "takes "
+    else:
+        speech = speech + "to "
+
+    speech =  speech + next + " "
+
+
+    if check:
+        speech = speech + "Check"
+    elif mate:
+        speech = speech + "Checkmate"
+
+
+    return speech
+
+#MOD*/
 
 for d in (CERTABO_SAVE_PATH, CERTABO_DATA_PATH):
     try:
@@ -479,7 +576,9 @@ enable_syzygy=syzygy_available
 difficulty = 0
 terminal_lines = ["Game started", "Terminal text here"]
 chess960 = False
-
+#/*MOD
+enable_voice=True
+#MOD*/
 
 def terminal_print(s, newline=True):
     global terminal_lines
@@ -1134,7 +1233,14 @@ while 1:
                     if not got_fast_result:
                         ai_move = proc.best_move.lower()
 
-                play_sound('move')
+                #/*MOD
+                if enable_voice:
+                    speak_text = chessboard.san(chess.Move(getattr(chess,ai_move[:2].upper()),getattr(chess,ai_move[2:].upper())))
+                    Talk(SanToSpeech(speak_text))
+                else:
+                    play_sound('move')
+                #MOD*/
+
                 logging.info("AI move: %s", ai_move)
 
                 # highlight right LED
@@ -1395,7 +1501,12 @@ while 1:
                                     break
 
                             if not got_fast_result:
-                                hint_text = proc.best_move
+                                #/*MOD
+                                ht=proc.best_move 
+                                hint_text = chessboard.san(chess.Move(getattr(chess,ht[:2].upper()),getattr(chess,ht[2:].upper())))
+                                if enable_voice:
+                                    Talk(SanToSpeech(hint_text))
+                                #MOD*/
 
                     if 6 < x < 78 and 244 < y < 272:  # Save button
                         window = "save"
@@ -1539,6 +1650,15 @@ while 1:
                     text_color=white,
                     color=darkergreen if enable_syzygy else grey,
                 )
+            #/*MOD
+            voice_button_area = button(
+                "Voice",
+                370,
+                syzygy_button_area[3] + 5,
+                text_color=white,
+                color=darkergreen if enable_voice else grey,
+            )
+            #MOD*/
             if use_board_position:
                 _, _, use_board_position_button_x, _ = use_board_position_button_area
                 side_to_move_button_area = button(
@@ -1617,6 +1737,10 @@ while 1:
                     chess960 = not chess960
                 if syzygy_available and coords_in(x, y, syzygy_button_area):
                     enable_syzygy = not enable_syzygy
+                #/*MOD
+                if coords_in(x, y, voice_button_area):
+                    enable_voice = not enable_voice
+                #MOD*/
                 if coords_in(x, y, depth_less_button_area):
                     if difficulty > 0:
                         difficulty -= 1
