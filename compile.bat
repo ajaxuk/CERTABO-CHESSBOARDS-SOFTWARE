@@ -21,4 +21,6 @@ xcopy /s /e /h /y sprites_1920 dist\result\sprites_1920
 mkdir dist\result\fonts
 xcopy /s /e /h /y fonts dist\result\fonts
 mkdir dist\result\engines
-xcopy /s /e /h /y engines dist\result\engines
+xcopy /s /e /h /y engines\pc dist\result\engines
+mkdir dist\result\books
+xcopy /s /e /h /y books dist\result\books
